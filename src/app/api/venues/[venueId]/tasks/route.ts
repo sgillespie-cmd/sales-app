@@ -1,39 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createTaskSchema } from "@/lib/validation/schemas";
+import { handleApiError, validationError } from "@/lib/api/errors";
+import {
+  requireAccountAccessFromRequest,
+  requireVenueAccess,
+} from "@/lib/api/auth";
+
+interface TaskRow {
+  id: string;
+  title: string;
+  status: "open" | "in_progress" | "done";
+  due_at: string | null;
+}
 
 export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<{ venueId: string }> }
+  request: NextRequest,
+  context: { params: Promise<{ venueId: string }> },
 ) {
-  const { venueId } = await context.params;
-  return NextResponse.json({
-    data: [],
-    error: null,
-    meta: { note: `Stubbed tasks list for venue ${venueId}` },
-  });
+  try {
+    const { venueId } = await context.params;
+    const auth = await requireAccountAccessFromRequest(request);
+    await requireVenueAccess(auth.supabase, auth.accountId, venueId);
+
+    const { data, error } = await auth.supabase
+      .from("tasks")
+      .select("id, title, status, due_at")
+      .eq("account_id", auth.accountId)
+      .eq("venue_id", venueId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      throw error;
+    }
+
+    const mapped = ((data ?? []) as TaskRow[]).map((task) => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      dueAt: task.due_at,
+    }));
+
+    return NextResponse.json({ data: mapped, error: null });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ venueId: string }> }
+  context: { params: Promise<{ venueId: string }> },
 ) {
-  const { venueId } = await context.params;
-  const body = await request.json();
-  const parsed = createTaskSchema.safeParse({
-    ...body,
-    venueId,
-  });
-  if (!parsed.success) {
-    return NextResponse.json(
-      { data: null, error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } },
-      { status: 400 }
-    );
-  }
+  try {
+    const { venueId } = await context.params;
+    const auth = await requireAccountAccessFromRequest(request);
+    await requireVenueAccess(auth.supabase, auth.accountId, venueId);
 
-  return NextResponse.json({
-    data: parsed.data,
-    error: null,
-    meta: { note: "Stubbed create task endpoint; wire DB insert next." },
-  });
+    const body = await request.json();
+    const parsed = createTaskSchema.safeParse({
+      ...body,
+      accountId: auth.accountId,
+      venueId,
+    });
+    if (!parsed.success) {
+      return validationError("Invalid payload", parsed.error.flatten());
+    }
+
+    const payload = parsed.data;
+    const { data, error } = await auth.supabase
+      .from("tasks")
+      .insert({
+        account_id: payload.accountId,
+        venue_id: payload.venueId,
+        title: payload.title,
+        status: payload.status ?? "open",
+        due_at: payload.dueAt ?? null,
+        assignee: payload.assignee ?? null,
+      })
+      .select("id, title, status, due_at")
+      .single();
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json(
+      {
+        data: {
+          id: data.id,
+          title: data.title,
+          status: data.status,
+          dueAt: data.due_at,
+        },
+        error: null,
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    return handleApiError(error);
+  }
 }

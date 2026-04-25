@@ -14,11 +14,23 @@ function missingEnvError(): Error {
   );
 }
 
-export function createServerSupabaseClient(): SupabaseClient {
+function createConfiguredClient(key: string, accessToken?: string): SupabaseClient {
+  return createClient(supabaseUrl!, key, {
+    global: accessToken
+      ? {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      : undefined,
+  });
+}
+
+export function createServerSupabaseClient(accessToken?: string): SupabaseClient {
   if (!supabaseUrl || !supabaseAnonKey) {
     throw missingEnvError();
   }
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return createConfiguredClient(supabaseAnonKey, accessToken);
 }
 
 export function getSupabaseServerClient(): SupabaseClient {

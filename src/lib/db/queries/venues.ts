@@ -263,3 +263,7 @@ export async function getVenueProfileData(venueId: string): Promise<VenueProfile
   }
   return profile;
 }
+
+export function getDemoVenuesList(): VenueListItem[] {
+  return [...demoVenues];
+}

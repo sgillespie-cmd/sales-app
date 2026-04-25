@@ -1,39 +1,67 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { hasSupabaseEnv, getSupabaseServerClient } from "@/lib/db/supabaseClient";
+import { apiErrorResponse } from "@/lib/api/errors";
+import { ensureAccountContext } from "@/lib/api/auth";
 import { createDocumentMetadataSchema } from "@/lib/validation/schemas";
 
-export async function GET(_: NextRequest, context: { params: Promise<{ venueId: string }> }) {
-  const { venueId } = await context.params;
-  if (!hasSupabaseEnv()) {
+interface Params {
+  params: Promise<{ venueId: string }>;
+}
+
+export async function GET(request: NextRequest, { params }: Params) {
+  const { venueId } = await params;
+  const context = await ensureAccountContext(request);
+  if ("response" in context) {
+    return context.response;
+  }
+
+  const { supabase, accountId, hasDb } = context;
+  if (!hasDb) {
     return NextResponse.json({ data: [], error: null });
   }
-  const supabase = getSupabaseServerClient();
 
   const { data, error } = await supabase
     .from("documents")
     .select("*")
+    .eq("account_id", accountId)
     .eq("venue_id", venueId)
     .order("uploaded_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ data: null, error: { code: "documents_list_failed", message: error.message } }, { status: 500 });
-  }
-  return NextResponse.json({ data, error: null });
-}
-
-export async function POST(request: NextRequest, context: { params: Promise<{ venueId: string }> }) {
-  const { venueId } = await context.params;
-  const body = await request.json();
-  const parsed = createDocumentMetadataSchema.safeParse({ ...body, venueId });
-  if (!parsed.success) {
-    return NextResponse.json(
-      { data: null, error: { code: "validation_error", message: "Invalid document payload", details: parsed.error.flatten() } },
-      { status: 400 },
+    return apiErrorResponse(
+      "DOCUMENTS_LIST_FAILED",
+      "Failed to load documents for this venue.",
+      500,
+      error.message,
     );
   }
 
-  if (!hasSupabaseEnv()) {
+  return NextResponse.json({ data, error: null });
+}
+
+export async function POST(request: NextRequest, { params }: Params) {
+  const { venueId } = await params;
+  const context = await ensureAccountContext(request);
+  if ("response" in context) {
+    return context.response;
+  }
+
+  const body = await request.json().catch(() => null);
+  const parsed = createDocumentMetadataSchema.safeParse({
+    ...body,
+    venueId,
+    accountId: context.accountId,
+  });
+  if (!parsed.success) {
+    return apiErrorResponse(
+      "VALIDATION_ERROR",
+      "Invalid document payload.",
+      400,
+      parsed.error.flatten(),
+    );
+  }
+
+  if (!context.hasDb) {
     return NextResponse.json(
       {
         data: {
@@ -52,9 +80,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ve
       { status: 201 },
     );
   }
-  const supabase = getSupabaseServerClient();
+
   const payload = parsed.data;
-  const { data, error } = await supabase
+  const { data, error } = await context.supabase
     .from("documents")
     .insert({
       account_id: payload.accountId,
@@ -69,7 +97,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ve
     .single();
 
   if (error) {
-    return NextResponse.json({ data: null, error: { code: "document_create_failed", message: error.message } }, { status: 500 });
+    return apiErrorResponse(
+      "DOCUMENT_CREATE_FAILED",
+      "Could not save document metadata.",
+      500,
+      error.message,
+    );
   }
+
   return NextResponse.json({ data, error: null }, { status: 201 });
 }
