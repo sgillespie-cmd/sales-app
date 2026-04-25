@@ -109,9 +109,23 @@ export async function getVenueById(venueId: string): Promise<Venue> {
     if (!venue) {
       notFound();
     }
-    const { weightedScore: _score, completenessPct: _completeness, scoredFactorCount: _scored, activeFactorCount: _active, ...rest } =
-      venue;
-    return rest;
+    return {
+      id: venue.id,
+      accountId: venue.accountId,
+      name: venue.name,
+      city: venue.city,
+      stateRegion: venue.stateRegion,
+      address: venue.address,
+      websiteUrl: venue.websiteUrl,
+      capacityMin: venue.capacityMin,
+      capacityMax: venue.capacityMax,
+      priceEstimateMin: venue.priceEstimateMin,
+      priceEstimateMax: venue.priceEstimateMax,
+      status: venue.status,
+      notes: venue.notes,
+      createdAt: venue.createdAt,
+      updatedAt: venue.updatedAt,
+    };
   }
 
   // Supabase-backed read can be wired in next iteration.
@@ -119,9 +133,23 @@ export async function getVenueById(venueId: string): Promise<Venue> {
   if (!venue) {
     notFound();
   }
-  const { weightedScore: _score, completenessPct: _completeness, scoredFactorCount: _scored, activeFactorCount: _active, ...rest } =
-    venue;
-  return rest;
+  return {
+    id: venue.id,
+    accountId: venue.accountId,
+    name: venue.name,
+    city: venue.city,
+    stateRegion: venue.stateRegion,
+    address: venue.address,
+    websiteUrl: venue.websiteUrl,
+    capacityMin: venue.capacityMin,
+    capacityMax: venue.capacityMax,
+    priceEstimateMin: venue.priceEstimateMin,
+    priceEstimateMax: venue.priceEstimateMax,
+    status: venue.status,
+    notes: venue.notes,
+    createdAt: venue.createdAt,
+    updatedAt: venue.updatedAt,
+  };
 }
 
 export interface VenueProfileData {

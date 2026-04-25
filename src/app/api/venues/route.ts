@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json<ApiResponse<typeof parsed.data>>(
+  return NextResponse.json<ApiResponse<{ id: string } & typeof parsed.data>>(
     {
       data: {
         ...parsed.data,

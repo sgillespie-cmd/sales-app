@@ -42,7 +42,31 @@ export const createVenueSchema = z
     { message: "priceEstimateMin must be <= priceEstimateMax", path: ["priceEstimateMin"] },
   );
 
-export const updateVenueSchema = createVenueSchema.omit({ accountId: true }).partial();
+const createVenueBaseSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  city: z.string().trim().max(120).optional().nullable(),
+  stateRegion: z.string().trim().max(120).optional().nullable(),
+  address: z.string().trim().max(300).optional().nullable(),
+  websiteUrl: z.string().url().optional().nullable(),
+  capacityMin: z.number().int().min(0).optional().nullable(),
+  capacityMax: z.number().int().min(0).optional().nullable(),
+  priceEstimateMin: z.number().nonnegative().optional().nullable(),
+  priceEstimateMax: z.number().nonnegative().optional().nullable(),
+  status: venueStatusEnum.optional(),
+  notes: nullableTrimmedString,
+});
+
+export const updateVenueSchema = createVenueBaseSchema
+  .partial()
+  .refine(
+    (v) => v.capacityMin == null || v.capacityMax == null || v.capacityMin <= v.capacityMax,
+    { message: "capacityMin must be <= capacityMax", path: ["capacityMin"] },
+  )
+  .refine(
+    (v) =>
+      v.priceEstimateMin == null || v.priceEstimateMax == null || v.priceEstimateMin <= v.priceEstimateMax,
+    { message: "priceEstimateMin must be <= priceEstimateMax", path: ["priceEstimateMin"] },
+  );
 
 export const upsertVenueScoresSchema = z.object({
   accountId: uuid,
