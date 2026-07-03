@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "granola": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["-m", "granola_mcp_server"],
+      "env": {
+        "GRANOLA_DOCUMENT_SOURCE": "remote",
+        "GRANOLA_API_TOKEN": "${env:GRANOLA_API_TOKEN}",
+        "GRANOLA_CACHE_TTL_SECONDS": "3600"
+      }
+    }
+  }
+}
